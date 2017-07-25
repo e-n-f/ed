@@ -6,7 +6,11 @@
 #include <signal.h>
 #include <sgtty.h>
 #include <setjmp.h>
-#define	NULL	0
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <time.h>
+
 #define	FNSIZE	64
 #define	LBSIZE	512
 #define	ESIZE	128
@@ -52,9 +56,8 @@ char	*linebp;
 int	ninbuf;
 int	io;
 int	pflag;
-long	lseek();
-int	(*oldhup)();
-int	(*oldquit)();
+void	(*oldhup)();
+void	(*oldquit)();
 int	vflag	= 1;
 int	xflag;
 int	xtflag;
@@ -95,16 +98,27 @@ char	*getline();
 char	*getblock();
 char	*place();
 char	*mktemp();
-char	*malloc();
-char	*realloc();
 jmp_buf	savej;
 
-main(argc, argv)
+int	getkey(void);
+int	crinit(char *keyp, char *permp);
+void	commands(void);
+void	newline(void);
+void	filename(int comm);
+void	quit(void);
+void	gdelete(void);
+void	global(int k);
+void	move(int cflag);
+void	reverse(register int *a1, register int *a2);
+void	compile(int aeof);
+void	putchr(int ac);
+
+int main(argc, argv)
 char **argv;
 {
 	register char *p1, *p2;
-	extern int onintr(), quit(), onhup();
-	int (*oldintr)();
+	extern int onintr(), onhup();
+	void (*oldintr)();
 
 	oldquit = signal(SIGQUIT, SIG_IGN);
 	oldhup = signal(SIGHUP, SIG_IGN);
@@ -155,7 +169,7 @@ char **argv;
 	quit();
 }
 
-commands()
+void commands()
 {
 	int getfile(), gettty();
 	register *a1, c;
@@ -500,7 +514,7 @@ nonzero()
 		error(Q);
 }
 
-newline()
+void newline()
 {
 	register c;
 
@@ -516,7 +530,7 @@ newline()
 	error(Q);
 }
 
-filename(comm)
+void filename(int comm)
 {
 	register char *p1, *p2;
 	register c;
@@ -785,7 +799,7 @@ callunix()
 	puts("!");
 }
 
-quit()
+void quit()
 {
 	if (vflag && fchange && dol!=zero) {
 		fchange = 0;
@@ -822,7 +836,7 @@ int *ad1, *ad2;
 	fchange = 1;
 }
 
-gdelete()
+void gdelete()
 {
 	register *a1, *a2, *a3;
 
@@ -892,7 +906,6 @@ putline()
 char *
 getblock(atl, iof)
 {
-	extern read(), write();
 	register bno, off;
 	register char *p1, *p2;
 	register int n;
@@ -971,7 +984,7 @@ init()
 	dot = dol = zero;
 }
 
-global(k)
+void global(int k)
 {
 	register char *gp;
 	register c;
@@ -1178,7 +1191,7 @@ register char *sp, *l1, *l2;
 	return(sp);
 }
 
-move(cflag)
+void move(int cflag)
 {
 	register int *adt, *ad1, *ad2;
 	int getcopy();
@@ -1221,7 +1234,7 @@ move(cflag)
 	fchange = 1;
 }
 
-reverse(a1, a2)
+void reverse(a1, a2)
 register int *a1, *a2;
 {
 	register int t;
@@ -1243,7 +1256,7 @@ getcopy()
 	return(0);
 }
 
-compile(aeof)
+void compile(int aeof)
 {
 	register eof, c;
 	register char *ep;
@@ -1580,7 +1593,7 @@ register char *sp;
 char	line[70];
 char	*linp	= line;
 
-putchr(ac)
+void putchr(int ac)
 {
 	register char *lp;
 	register c;
@@ -1652,7 +1665,7 @@ long startn;
 	}
 }
 
-getkey()
+int getkey()
 {
 	struct sgttyb b;
 	int save;
