@@ -158,7 +158,8 @@ char **argv;
 		globp = "r";
 	}
 	zero = (int *)malloc(nlall*sizeof(int));
-	tfname = mktemp("/tmp/eXXXXX");
+	char tfname1[] = "/tmp/eXXXXX";
+	tfname = mktemp(tfname1);
 	init();
 	if (((int)oldintr&01) == 0)
 		signal(SIGINT, onintr);
