@@ -8,6 +8,7 @@
 #include <setjmp.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <time.h>
 
@@ -25,7 +26,7 @@
 #define	CCL	6
 #define	NCCL	8
 #define	CDOL	10
-#define	CEOF	11
+#define	CEOF_	11
 #define	CKET	12
 #define	CBACK	14
 
@@ -100,6 +101,7 @@ char	*place();
 char	*mktemp();
 jmp_buf	savej;
 
+/* prototypes */
 int	getkey(void);
 int	crinit(char *keyp, char *permp);
 void	commands(void);
@@ -112,19 +114,41 @@ void	move(int cflag);
 void	reverse(register int *a1, register int *a2);
 void	compile(int aeof);
 void	putchr(int ac);
+void	quit1(int q);
+void	init(void);
+void	onintr(int sig);
+void	onhup(int sig);
+int	getchr(void);
+void	setdot(void);
+void	delete(void);
+void	setnoaddr(void);
+void	error(const char *);
+void	puts(const char *s);
+int	append(int (*f)(void), int *a);
+void	nonzero(void);
+void	join(void);
+void	setall(void);
+void	exfile(void);
+void	substitute(int);
+void	putfile(void);
+void	putd(void);
+void 	callunix(void);
+void	exfile(void);
+int 	execute(int gf, int *addr);
+void	error(const char *s);
+void	crblock(char *permp, char *buf, int nchar, long startn);
 
 int main(argc, argv)
 char **argv;
 {
 	register char *p1, *p2;
-	extern int onintr(), onhup();
-	void (*oldintr)();
+	void (*oldintr)(int);
 
 	oldquit = signal(SIGQUIT, SIG_IGN);
 	oldhup = signal(SIGHUP, SIG_IGN);
 	oldintr = signal(SIGINT, SIG_IGN);
 	if ((int)signal(SIGTERM, SIG_IGN) == 0)
-		signal(SIGTERM, quit);
+		signal(SIGTERM, quit1);
 	argv++;
 	while (argc > 1 && **argv=='-') {
 		switch((*argv)[1]) {
@@ -153,7 +177,7 @@ char **argv;
 	if (argc>1) {
 		p1 = *argv;
 		p2 = savedfile;
-		while (*p2++ = *p1++)
+		while ((*p2++ = *p1++) != 0)
 			;
 		globp = "r";
 	}
@@ -173,7 +197,7 @@ char **argv;
 void commands()
 {
 	int getfile(), gettty();
-	register *a1, c;
+	register int *a1, c;
 
 	for (;;) {
 	if (pflag) {
@@ -390,7 +414,7 @@ void commands()
 int *
 address()
 {
-	register *a1, minus, c;
+	register int *a1, minus, c;
 	int n, relerr;
 
 	minus = 0;
@@ -484,7 +508,7 @@ address()
 	}
 }
 
-setdot()
+void setdot(void)
 {
 	if (addr2 == 0)
 		addr1 = addr2 = dot;
@@ -492,7 +516,7 @@ setdot()
 		error(Q);
 }
 
-setall()
+void setall(void)
 {
 	if (addr2==0) {
 		addr1 = zero+1;
@@ -503,13 +527,13 @@ setall()
 	setdot();
 }
 
-setnoaddr()
+void setnoaddr(void)
 {
 	if (addr2)
 		error(Q);
 }
 
-nonzero()
+void nonzero(void)
 {
 	if (addr1<=zero || addr2>dol)
 		error(Q);
@@ -517,7 +541,7 @@ nonzero()
 
 void newline()
 {
-	register c;
+	register int c;
 
 	if ((c = getchr()) == '\n')
 		return;
@@ -534,7 +558,7 @@ void newline()
 void filename(int comm)
 {
 	register char *p1, *p2;
-	register c;
+	register int c;
 
 	count = 0;
 	c = getchr();
@@ -543,7 +567,7 @@ void filename(int comm)
 		if (*p1==0 && comm!='f')
 			error(Q);
 		p2 = file;
-		while (*p2++ = *p1++)
+		while ((*p2++ = *p1++) != 0)
 			;
 		return;
 	}
@@ -563,12 +587,12 @@ void filename(int comm)
 	if (savedfile[0]==0 || comm=='e' || comm=='f') {
 		p1 = savedfile;
 		p2 = file;
-		while (*p1++ = *p2++)
+		while ((*p1++ = *p2++) != 0)
 			;
 	}
 }
 
-exfile()
+void exfile(void)
 {
 	close(io);
 	io = -1;
@@ -578,7 +602,7 @@ exfile()
 	}
 }
 
-onintr()
+void onintr(int sig)
 {
 	signal(SIGINT, onintr);
 	putchr('\n');
@@ -586,7 +610,7 @@ onintr()
 	error(Q);
 }
 
-onhup()
+void onhup(int sig)
 {
 	signal(SIGINT, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
@@ -601,10 +625,9 @@ onhup()
 	quit();
 }
 
-error(s)
-char *s;
+void error(const char *s)
 {
-	register c;
+	register int c;
 
 	wrapp = 0;
 	listf = 0;
@@ -627,10 +650,10 @@ char *s;
 	longjmp(savej, 1);
 }
 
-getchr()
+int getchr()
 {
 	char c;
-	if (lastc=peekc) {
+	if ((lastc=peekc) != 0) {
 		peekc = 0;
 		return(lastc);
 	}
@@ -646,9 +669,9 @@ getchr()
 	return(lastc);
 }
 
-gettty()
+int gettty(void)
 {
-	register c;
+	register int c;
 	register char *gf;
 	register char *p;
 
@@ -672,9 +695,9 @@ gettty()
 	return(0);
 }
 
-getfile()
+int getfile(void)
 {
-	register c;
+	register int c;
 	register char *lp, *fp;
 
 	lp = linebuf;
@@ -708,11 +731,11 @@ getfile()
 	return(0);
 }
 
-putfile()
+void putfile(void)
 {
 	int *a1, n;
 	register char *fp, *lp;
-	register nib;
+	register int nib;
 
 	nib = 512;
 	fp = genbuf;
@@ -747,11 +770,9 @@ putfile()
 	}
 }
 
-append(f, a)
-int *a;
-int (*f)();
+int append(int (*f)(void), int *a)
 {
-	register *a1, *a2, *rdot;
+	register int *a1, *a2, *rdot;
 	int nline, tl;
 
 	nline = 0;
@@ -781,7 +802,7 @@ int (*f)();
 	return(nline);
 }
 
-callunix()
+void callunix(void)
 {
 	register (*savint)(), pid, rpid;
 	int retcode;
@@ -810,7 +831,11 @@ void quit()
 	exit(0);
 }
 
-delete()
+void quit1(int q) {
+	quit();
+}
+
+void delete(void)
 {
 	setdot();
 	newline();
@@ -963,7 +988,7 @@ int (*iofcn)();
 	}
 }
 
-init()
+void init()
 {
 	register *markp;
 
@@ -1037,7 +1062,7 @@ void global(int k)
 	}
 }
 
-join()
+void join(void)
 {
 	register char *gp, *lp;
 	register *a1;
@@ -1059,7 +1084,7 @@ join()
 	dot = addr1;
 }
 
-substitute(inglob)
+void substitute(int inglob)
 {
 	register *markp, *a1, nl;
 	int gsubf;
@@ -1288,7 +1313,7 @@ void compile(int aeof)
 		if (c==eof) {
 			if (bracketp != bracket)
 				goto cerror;
-			*ep++ = CEOF;
+			*ep++ = CEOF_;
 			return;
 		}
 		if (c!='*')
@@ -1386,8 +1411,7 @@ void compile(int aeof)
 	error(Q);
 }
 
-execute(gf, addr)
-int *addr;
+int execute(int gf, int *addr)
 {
 	register char *p1, *p2, c;
 
@@ -1460,7 +1484,7 @@ register char *ep, *lp;
 			continue;
 		return(0);
 
-	case CEOF:
+	case CEOF_:
 		loc2 = lp;
 		return(1);
 
@@ -1571,7 +1595,7 @@ register char *set, c;
 	return(!af);
 }
 
-putd()
+void putd(void)
 {
 	register r;
 
@@ -1582,8 +1606,7 @@ putd()
 	putchr(r + '0');
 }
 
-puts(sp)
-register char *sp;
+void puts(const char *sp)
 {
 	col = 0;
 	while (*sp)
@@ -1637,7 +1660,8 @@ out:
 	}
 	linp = lp;
 }
-crblock(permp, buf, nchar, startn)
+
+void crblock(permp, buf, nchar, startn)
 char *permp;
 char *buf;
 long startn;
