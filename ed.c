@@ -102,7 +102,15 @@ char	*mktemp();
 jmp_buf	savej;
 
 /* prototypes */
-void blkio(int b, char *buf, ssize_t (*iofcn)(int, void *, size_t));
+int	backref(register int i, register char *lp);
+int	cclass(register char *set, register char c, int af);
+int	advance(char *, char *);
+void	dosub(void);
+int	compsub(void);
+void	dubsub(void);
+int	getcopy(void);
+void	makekey(char *a, char *b);
+void	blkio(int b, char *buf, ssize_t (*iofcn)(int, void *, size_t));
 int	putline(void);
 int	getkey(void);
 int	crinit(char *keyp, char *permp);
@@ -998,7 +1006,7 @@ ssize_t (*iofcn)(int, void *, size_t);
 
 void init()
 {
-	register *markp;
+	register int *markp;
 
 	close(tfile);
 	tline = 2;
@@ -1021,7 +1029,7 @@ void init()
 void global(int k)
 {
 	register char *gp;
-	register c;
+	register int c;
 	register int *a1;
 	char globuf[GBSIZE];
 
@@ -1073,18 +1081,18 @@ void global(int k)
 void join(void)
 {
 	register char *gp, *lp;
-	register *a1;
+	register int *a1;
 
 	gp = genbuf;
 	for (a1=addr1; a1<=addr2; a1++) {
 		lp = getline(*a1);
-		while (*gp = *lp++)
+		while ((*gp = *lp++) != 0)
 			if (gp++ >= &genbuf[LBSIZE-2])
 				error(Q);
 	}
 	lp = linebuf;
 	gp = genbuf;
-	while (*lp++ = *gp++)
+	while ((*lp++ = *gp++) != 0)
 		;
 	*addr1 = putline();
 	if (addr1<addr2)
@@ -1094,7 +1102,7 @@ void join(void)
 
 void substitute(int inglob)
 {
-	register *markp, *a1, nl;
+	register int *markp, *a1, nl;
 	int gsubf;
 	int getsub();
 
@@ -1131,9 +1139,9 @@ void substitute(int inglob)
 		error(Q);
 }
 
-compsub()
+int compsub()
 {
-	register seof, c;
+	register int seof, c;
 	register char *p;
 
 	if ((seof = getchr()) == '\n' || seof == ' ')
@@ -1166,20 +1174,20 @@ compsub()
 	return(0);
 }
 
-getsub()
+int getsub()
 {
 	register char *p1, *p2;
 
 	p1 = linebuf;
 	if ((p2 = linebp) == 0)
 		return(EOF);
-	while (*p1++ = *p2++)
+	while ((*p1++ = *p2++) != 0)
 		;
 	linebp = 0;
 	return(0);
 }
 
-dosub()
+void dosub()
 {
 	register char *lp, *sp, *rp;
 	int c;
@@ -1189,7 +1197,7 @@ dosub()
 	rp = rhsbuf;
 	while (lp < loc1)
 		*sp++ = *lp++;
-	while (c = *rp++&0377) {
+	while ((c = *rp++&0377) != 0) {
 		if (c=='&') {
 			sp = place(sp, loc1, loc2);
 			continue;
@@ -1203,12 +1211,12 @@ dosub()
 	}
 	lp = loc2;
 	loc2 = sp - genbuf + linebuf;
-	while (*sp++ = *lp++)
+	while ((*sp++ = *lp++) != 0)
 		if (sp >= &genbuf[LBSIZE])
 			error(Q);
 	lp = linebuf;
 	sp = genbuf;
-	while (*lp++ = *sp++)
+	while ((*lp++ = *sp++) != 0)
 		;
 }
 
@@ -1282,7 +1290,7 @@ register int *a1, *a2;
 	}
 }
 
-getcopy()
+int getcopy(void)
 {
 	if (addr1 > addr2)
 		return(EOF);
@@ -1292,7 +1300,7 @@ getcopy()
 
 void compile(int aeof)
 {
-	register eof, c;
+	register int eof, c;
 	register char *ep;
 	char *lastep;
 	char bracket[NBRA], *bracketp;
@@ -1421,7 +1429,8 @@ void compile(int aeof)
 
 int execute(int gf, int *addr)
 {
-	register char *p1, *p2, c;
+	register char *p1, *p2;
+	int c;
 
 	for (c=0; c<NBRA; c++) {
 		braslist[c] = 0;
@@ -1432,7 +1441,7 @@ int execute(int gf, int *addr)
 			return(0);
 		p1 = linebuf;
 		p2 = genbuf;
-		while (*p1++ = *p2++)
+		while ((*p1++ = *p2++) != 0)
 			;
 		locs = p1 = loc2;
 	} else {
@@ -1469,8 +1478,7 @@ int execute(int gf, int *addr)
 	return(0);
 }
 
-advance(lp, ep)
-register char *ep, *lp;
+int advance(char *lp, char *ep)
 {
 	register char *curlp;
 	int i;
@@ -1511,11 +1519,11 @@ register char *ep, *lp;
 		return(0);
 
 	case CBRA:
-		braslist[*ep++] = lp;
+		braslist[(int) *ep++] = lp;
 		continue;
 
 	case CKET:
-		braelist[*ep++] = lp;
+		braelist[(int) *ep++] = lp;
 		continue;
 
 	case CBACK:
@@ -1576,8 +1584,8 @@ register char *ep, *lp;
 	}
 }
 
-backref(i, lp)
-register i;
+int backref(i, lp)
+register int i;
 register char *lp;
 {
 	register char *bp;
@@ -1589,10 +1597,9 @@ register char *lp;
 	return(0);
 }
 
-cclass(set, c, af)
-register char *set, c;
+int cclass(register char *set, register char c, int af)
 {
-	register n;
+	register int n;
 
 	if (c==0)
 		return(0);
@@ -1605,7 +1612,7 @@ register char *set, c;
 
 void putd(void)
 {
-	register r;
+	register int r;
 
 	r = count%10;
 	count /= 10;
@@ -1628,7 +1635,7 @@ char	*linp	= line;
 void putchr(int ac)
 {
 	register char *lp;
-	register c;
+	register int c;
 
 	lp = linp;
 	c = ac;
@@ -1702,9 +1709,9 @@ int getkey()
 {
 	struct sgttyb b;
 	int save;
-	int (*sig)();
+	void (*sig)(int);
 	register char *p;
-	register c;
+	register int c;
 
 	sig = signal(SIGINT, SIG_IGN);
 	if (gtty(0, &b) == -1)
@@ -1729,11 +1736,11 @@ int getkey()
  * Besides initializing the encryption machine, this routine
  * returns 0 if the key is null, and 1 if it is non-null.
  */
-crinit(keyp, permp)
+int crinit(keyp, permp)
 char	*keyp, *permp;
 {
 	register char *t1, *t2, *t3;
-	register i;
+	register int i;
 	int ic, k, temp, pf[2];
 	unsigned random;
 	char buf[13];
@@ -1792,7 +1799,7 @@ char	*keyp, *permp;
 	return(1);
 }
 
-makekey(a, b)
+void makekey(a, b)
 char *a, *b;
 {
 	register int i;
