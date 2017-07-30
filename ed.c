@@ -158,7 +158,7 @@ char **argv;
 	oldquit = signal(SIGQUIT, SIG_IGN);
 	oldhup = signal(SIGHUP, SIG_IGN);
 	oldintr = signal(SIGINT, SIG_IGN);
-	if ((int)signal(SIGTERM, SIG_IGN) == 0)
+	if (signal(SIGTERM, SIG_IGN) == 0)
 		signal(SIGTERM, quit1);
 	argv++;
 	while (argc > 1 && **argv=='-') {
@@ -192,7 +192,7 @@ char **argv;
 			;
 		globp = "r";
 	}
-	zero = (int *)malloc(nlall*sizeof(int));
+	zero = malloc(nlall*sizeof(int));
 	char tfname1[] = "/tmp/eXXXXX";
 	tfname = mktemp(tfname1);
 	init();
@@ -792,7 +792,7 @@ int append(int (*f)(void), int *a)
 		if ((dol-zero)+1 >= nlall) {
 			int *ozero = zero;
 			nlall += 512;
-			free((char *)zero);
+			free(zero);
 			if ((zero = (int *)realloc((char *)zero, nlall*sizeof(int)))==NULL) {
 				lastc = '\n';
 				zero = ozero;
