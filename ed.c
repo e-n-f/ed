@@ -102,6 +102,8 @@ char	*mktemp();
 jmp_buf	savej;
 
 /* prototypes */
+void blkio(int b, char *buf, ssize_t (*iofcn)(int, void *, size_t));
+int	putline(void);
 int	getkey(void);
 int	crinit(char *keyp, char *permp);
 void	commands(void);
@@ -137,6 +139,7 @@ void	exfile(void);
 int 	execute(int gf, int *addr);
 void	error(const char *s);
 void	crblock(char *permp, char *buf, int nchar, long startn);
+void	rdelete(int *, int *);
 
 int main(argc, argv)
 char **argv;
@@ -804,7 +807,8 @@ int append(int (*f)(void), int *a)
 
 void callunix(void)
 {
-	register (*savint)(), pid, rpid;
+	register void (*savint)();
+	int pid, rpid;
 	int retcode;
 
 	setnoaddr();
@@ -843,10 +847,10 @@ void delete(void)
 	rdelete(addr1, addr2);
 }
 
-rdelete(ad1, ad2)
+void rdelete(ad1, ad2)
 int *ad1, *ad2;
 {
-	register *a1, *a2, *a3;
+	register int *a1, *a2, *a3;
 
 	a1 = ad1;
 	a2 = ad2+1;
@@ -864,7 +868,7 @@ int *ad1, *ad2;
 
 void gdelete()
 {
-	register *a1, *a2, *a3;
+	register int *a1, *a2, *a3;
 
 	a3 = dol;
 	for (a1=zero+1; (*a1&01)==0; a1++)
@@ -887,13 +891,13 @@ char *
 getline(tl)
 {
 	register char *bp, *lp;
-	register nl;
+	register int nl;
 
 	lp = linebuf;
 	bp = getblock(tl, READ);
 	nl = nleft;
 	tl &= ~0377;
-	while (*lp++ = *bp++)
+	while ((*lp++ = *bp++) != 0)
 		if (--nl == 0) {
 			bp = getblock(tl+=0400, READ);
 			nl = nleft;
@@ -901,10 +905,10 @@ getline(tl)
 	return(linebuf);
 }
 
-putline()
+int putline(void)
 {
 	register char *bp, *lp;
-	register nl;
+	register int nl;
 	int tl;
 
 	fchange = 1;
@@ -913,7 +917,7 @@ putline()
 	bp = getblock(tl, WRITE);
 	nl = nleft;
 	tl &= ~0377;
-	while (*bp = *lp++) {
+	while ((*bp = *lp++) != 0) {
 		if (*bp++ == '\n') {
 			*--bp = 0;
 			linebp = lp;
@@ -929,10 +933,14 @@ putline()
 	return(nl);
 }
 
+ssize_t write1(int fd, void *buf, size_t n) {
+	return write(fd, buf, n);
+}
+
 char *
 getblock(atl, iof)
 {
-	register bno, off;
+	register int bno, off;
 	register char *p1, *p2;
 	register int n;
 	
@@ -953,7 +961,7 @@ getblock(atl, iof)
 		if (ichanged) {
 			if(xtflag)
 				crblock(tperm, ibuff, 512, (long)0);
-			blkio(iblock, ibuff, write);
+			blkio(iblock, ibuff, write1);
 		}
 		ichanged = 0;
 		iblock = bno;
@@ -970,17 +978,17 @@ getblock(atl, iof)
 			while(n--)
 				*p2++ = *p1++;
 			crblock(tperm, crbuf, 512, (long)0);
-			blkio(oblock, crbuf, write);
+			blkio(oblock, crbuf, write1);
 		} else
-			blkio(oblock, obuff, write);
+			blkio(oblock, obuff, write1);
 	}
 	oblock = bno;
 	return(obuff+off);
 }
 
-blkio(b, buf, iofcn)
+void blkio(b, buf, iofcn)
 char *buf;
-int (*iofcn)();
+ssize_t (*iofcn)(int, void *, size_t);
 {
 	lseek(tfile, (long)b<<9, 0);
 	if ((*iofcn)(tfile, buf, 512) != 512) {
